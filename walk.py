@@ -1,14 +1,19 @@
 import argparse
 import subprocess
 import platform
+import sys
 
 def parseArgs():
-    pass
-
-def getUrl(target,line):
-    for ch in line:
-        if ch is None:
-            pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d","-D", help="enter -d followed by domain", type=str)
+    args = parser.parse_args()  # get args
+    output = []
+    if args.d is not None:
+        output.append(args.d)
+    else:
+        print('Domain not specified exiting program!')
+        sys.exit(-1)
+    return output
 
 """
 Helper function to test if host is reachable or not
@@ -23,6 +28,10 @@ def pingOk(host):
             return False
     return True
 
+
+def mailServers(url):
+    command = f'dig {url} MX'
+    pass
 
 def dig(target):
     prefix = 'apple'
@@ -52,11 +61,9 @@ def dig(target):
     #[domains.add(temp) for temp in x.strip().split(' ') if 'arin.net' in temp for x in info]
 
 def main():
-    print(pingOk(host='applez.yale.edu'))
-    #target = 'icann.org'
-    #dig(target)
+    args = parseArgs()
+    domain = args[0]
+    print(domain)
 
-
-
-    
-main()
+if __name__ == '__main__':
+    main()
