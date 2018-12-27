@@ -45,7 +45,6 @@ def dig(target, prefix, NSEC3_flag, domains, stop_flag):
     if stop_flag:
         return sorted(list(domains)), NSEC3_flag
     else:
-        prefix = 'a'
         command = 'dig +dnssec ' + prefix + '.' + target
         # wsl = windows subsystem for linux
         output = subprocess.getoutput("wsl.exe " + command)
@@ -75,7 +74,8 @@ def dig(target, prefix, NSEC3_flag, domains, stop_flag):
         tmp = sorted(list(domains))
         for i in range(len(tmp)):
             domain = tmp[i]
-            print('el: ', domain)
+            if domain[0] == prefix:
+                prefix = chr(ord(domain[0]) + 1)  # shift letter by 1
         if prefix == 'z': stop_flag = True
         dig(target, prefix, NSEC3_flag, domains, stop_flag)
 
