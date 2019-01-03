@@ -1,25 +1,6 @@
-import argparse
 import subprocess
 import platform
 import sys
-
-"""
-    A simple program to recursively walk zone files for domains that utilize NSEC
-"""
-
-
-def parseArgs():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "-D", help="enter -d followed by domain", type=str)
-    args = parser.parse_args()  # get args
-    output = []
-    if args.d is not None:
-        output.append(args.d)
-    else:
-        print('Domain not specified exiting program!')
-        sys.exit(-1)
-    return output
-
 
 """
 Helper function to test if host is reachable or not
@@ -36,56 +17,83 @@ def pingOk(host):
     return True
 
 
-def mailServers(url):
-    command = f'dig {url} MX'
-    pass
+def check_args():
+    if len(sys.argv) != 2:
+        print('Incorrect number of arguments, exiting program')
+        print('Run as python3 name_of_domain')
+        sys.exit(-1)
 
 
-def dig(target, prefix, NSEC3_flag, domains, stop_flag):
-    if stop_flag:
-        return sorted(list(domains)), NSEC3_flag
-    else:
-        command = 'dig +dnssec ' + prefix + '.' + target
-        # wsl = windows subsystem for linux
-        output = subprocess.getoutput("wsl.exe " + command)
-        info = []
-        NSEC3_flag = False
-        for line in output.strip().splitlines():
-            if 'NSEC' in line:
-                info.append(line)
-            elif 'NSEC3' in line:
-                NSEC3_flag = True
-                info.append(line)
-            elif target in line and target != (prefix + '.' + target):
-                info.append(line)
-            else:
+def dig(target, prefix, NSEC3_flag, domains, counter):
+    """print('domains are: ')
+    for domain in domains:
+        print('\t ' + domain)"""
+    if counter > 4 and ('z' in prefix or 'z' == prefix):
+        print('Done digging!')
+        print(domains)
+        return domains, NSEC3_flag
+
+    url = prefix + '.' + target
+    if pingOk(url): url = str((prefix * 4)) + '.' + target
+    command = 'dig +dnssec ' + url
+    # wsl = windows subsystem for linux
+    output = subprocess.getoutput("wsl.exe " + command)
+    info = []
+    for line in output.strip().splitlines():
+        if 'NSEC' in line:
+            info.append(line)
+        elif 'NSEC3' in line:
+            NSEC3_flag = True
+            info.append(line)
+        elif target in line:
+            info.append(line)
+        else:
+            continue
+
+    for line in info:
+        words = line.replace('\t', ' ').split(' ')
+        for word in words:
+            word = word[:len(word) - 1].replace(' ', '').replace(';', '')
+            # print('word is: ' + word)
+            if len(word) < len(target):
                 continue
+            if word in domains:
+                counter += 1
+                continue
+            if len(word) == 55 and NSEC3_flag is True:  # indicates it's hashed
+                domains.add(word)
+                continue
+            if target in word and word not in domains and word != url:
+                domains.add(word)
 
-        domains = set()
-        for line in info:
-            print('line: ', line)
-            words = line.replace('\t', ' ').split(' ')
-            for word in words:
-                word = word[:len(word) - 1]
-                if target in word and word not in domains and word != target:
-                    domains.add(word.replace(' ', '').replace(';', ''))
+    tmp = sorted(list(domains))
+    for domain in tmp:
+        if domain[0] == prefix:
+            prefix = chr(ord(domain[0]) + 1)  # shift letter by 1
+            break
 
-        start = ''
-        tmp = sorted(list(domains))
-        for i in range(len(tmp)):
-            domain = tmp[i]
-            if domain[0] == prefix:
-                prefix = chr(ord(domain[0]) + 1)  # shift letter by 1
-        if prefix == 'z': stop_flag = True
-        dig(target, prefix, NSEC3_flag, domains, stop_flag)
+    if len(tmp) >= 1:
+        if prefix == tmp[0][0]:
+            prefix = chr(ord(prefix) + 1)
+    dig(target, prefix, NSEC3_flag, domains, counter)
+
+
+def pretty_print(domains, NSEC3_flag):
+    print('[*] Printing Results')
+    if NSEC3_flag is True:
+        print('\t Domain is using NSEC3 use other tool to crack hashes')
+    for domain in sorted(list(domains)):
+        print('\t ' + str(domain))
 
 
 def main():
-    args = parseArgs()
-    domain = args[0]
-    info = dig(domain, prefix='a', NSEC3_flag=False, domains=set(), stop_flag=False)
+    check_args()
+    domain = sys.argv[1]
+    info = dig(domain, prefix='a', NSEC3_flag=False, domains=set(), counter=0)
+    print('Info is: ', info)
     domains = info[0]
     NSEC3_flag = info[1]
+    pretty_print(domains, NSEC3_flag)
 
 
 if __name__ == '__main__':
