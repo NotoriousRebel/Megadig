@@ -25,57 +25,54 @@ def check_args():
 
 
 def dig(target, prefix, NSEC3_flag, domains, counter):
-    """print('domains are: ')
-    for domain in domains:
-        print('\t ' + domain)"""
-    if counter > 4 and ('z' in prefix or 'z' == prefix):
-        print('Done digging!')
-        print(domains)
+    if counter > 4 or ('z' in prefix or 'z' == prefix):
         return domains, NSEC3_flag
-
-    url = prefix + '.' + target
-    if pingOk(url): url = str((prefix * 4)) + '.' + target
-    command = 'dig +dnssec ' + url
-    # wsl = windows subsystem for linux
-    output = subprocess.getoutput("wsl.exe " + command)
-    info = []
-    for line in output.strip().splitlines():
-        if 'NSEC' in line:
-            info.append(line)
-        elif 'NSEC3' in line:
-            NSEC3_flag = True
-            info.append(line)
-        elif target in line:
-            info.append(line)
-        else:
-            continue
-
-    for line in info:
-        words = line.replace('\t', ' ').split(' ')
-        for word in words:
-            word = word[:len(word) - 1].replace(' ', '').replace(';', '')
-            # print('word is: ' + word)
-            if len(word) < len(target):
+    else:
+        url = prefix + '.' + target
+        if pingOk(url): url = str((prefix * 4)) + '.' + target
+        command = 'dig +dnssec ' + url
+        # wsl = windows subsystem for linux
+        output = subprocess.getoutput("wsl.exe " + command)
+        info = []
+        for line in output.strip().splitlines():
+            if 'NSEC' in line:
+                info.append(line)
+            elif 'NSEC3' in line:
+                NSEC3_flag = True
+                info.append(line)
+            elif target in line:
+                info.append(line)
+            else:
                 continue
-            if word in domains:
-                counter += 1
-                continue
-            if len(word) == 55 and NSEC3_flag is True:  # indicates it's hashed
-                domains.add(word)
-                continue
-            if target in word and word not in domains and word != url:
-                domains.add(word)
 
-    tmp = sorted(list(domains))
-    for domain in tmp:
-        if domain[0] == prefix:
-            prefix = chr(ord(domain[0]) + 1)  # shift letter by 1
-            break
+        for line in info:
+            words = line.replace('\t', ' ').split(' ')
+            for word in words:
+                word = word[:len(word) - 1].replace(' ', '').replace(';', '')
+                if target in word:
+                    print('word is: ', word)
+                if len(word) < len(target):
+                    continue
+                if word in domains:
+                    counter += 1
+                    continue
+                if len(word) == 55 and NSEC3_flag is True:  # indicates it's hashed
+                    domains.add(word)
+                    continue
+                if target in word and word not in domains and word != url:
+                    domains.add(word)
 
-    if len(tmp) >= 1:
-        if prefix == tmp[0][0]:
-            prefix = chr(ord(prefix) + 1)
-    dig(target, prefix, NSEC3_flag, domains, counter)
+        """tmp = sorted(list(domains))
+        for domain in tmp:
+            if domain[0] == prefix:
+                prefix = chr(ord(domain[0]) + 1)  # shift letter by 1
+                break
+    
+        if len(tmp) >= 1:
+            if prefix == tmp[0][0]:
+                prefix = chr(ord(prefix) + 1)"""
+        prefix = chr(ord(prefix) + 1)  # shift letter by 1
+        return dig(target, prefix, NSEC3_flag, domains, counter)
 
 
 def pretty_print(domains, NSEC3_flag):
