@@ -3,7 +3,7 @@ import platform
 import sys
 
 
-def pingOk(host: str):
+def pingOk(host: str) -> bool:
     """
     Helper function to test if host is reachable or not
     :param host host to check
@@ -25,6 +25,19 @@ def check_args():
         print('Run as python3 name_of_domain')
         sys.exit(-1)
 
+
+def lazy_dig(target: str) -> tuple or None:
+    """
+    Attempt to get AXFR records first
+    :param target: target domain
+    :return: None or tuple of output and None
+    """
+    command = f'dig -t AXFR {target}'
+    output = subprocess.getoutput("wsl.exe " + command)
+    if output is not None and output != "":
+        if 'Transfer failed.' not in output:
+            return output, None
+    return None
 
 def dig(target: str, prefix: chr, NSEC3_flag: bool, domains: set, counter: int) -> tuple:
     """
@@ -75,12 +88,11 @@ def dig(target: str, prefix: chr, NSEC3_flag: bool, domains: set, counter: int) 
         return dig(target, prefix, NSEC3_flag, domains, counter)
 
 
-def pretty_print(domains: set, NSEC3_flag: bool):
+def pretty_print(domains: set or str, NSEC3_flag: bool or None):
     """
     Function to pretty print domains
     :param domains: set of domains
     :param NSEC3_flag: flag to indicate if target uses NSEC3
-    :return:
     """
     print('[*] Printing Results\n')
     if NSEC3_flag is True:
@@ -93,9 +105,12 @@ def main():
     """
     Main function that handles logic
     """
+    temp()
     check_args()
     domain = sys.argv[1]
-    info = dig(domain, prefix='a', NSEC3_flag=False, domains=set(), counter=0)
+    info = lazy_dig(domain)
+    if info is None:
+        info = dig(domain, prefix='a', NSEC3_flag=False, domains=set(), counter=0)
     domains = info[0]
     NSEC3_flag = info[1]
     pretty_print(domains, NSEC3_flag)
